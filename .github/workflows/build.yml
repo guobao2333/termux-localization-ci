@@ -1,0 +1,155 @@
+name: Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'VersionName'
+        required: true
+        default: '0.118.2'
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        package_variant: [ apt-android-7, apt-android-5 ]
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Verify version
+        run: |
+          if ! printf "%s" "${{ github.event.inputs.version }}" | grep -qP '^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$'; then
+           echo "The versionName '${{ github.event.inputs.version }}' is not a valid version as per semantic version '2.0.0' spec in the format 'major.minor.patch(-prerelease)(+buildmetadata)'. https://semver.org/spec/v2.0.0.html." >&2
+           exit 1
+          fi
+          echo 'Verified✅'
+
+      # 检出代码
+      - name: Checkout termux remote repository
+        uses: actions/checkout@v4
+        with:
+          repository: termux/termux-app
+          ref: v${{ github.event.inputs.version }}
+          fetch-depth: 0
+          path: .
+
+      # 检出语言资源
+      - name: Checkout local repository
+        uses: actions/checkout@v4
+        with:
+          path: res
+
+      - name: Rename and move resource dirs
+        run: |
+          echo "Before:"
+          find res -mindepth 1 -maxdepth 1 -type d
+          # 删除多余内容
+          find res -mindepth 1 -maxdepth 1 ! -name ".*" -type d -prune -o -exec rm -rf {} +
+          # 重命名
+          find res -mindepth 1 -maxdepth 1 -type d -exec sh -c 'new_name="values-$(echo "${1##*/}" | sed "s/_/-r/g")"; mv "$1" "res/$new_name"' _ {} \;
+          # for d in res/*; do
+          #   [ -d "$d" ] || continue
+          #   new="values-$(basename "$d" | sed 's/_/-r/g')"
+          #   mv "$d" "res/$new"
+          # done
+          mv res/* app/src/main/res && rmdir res
+          echo "After:"
+          find app/src/main/res -mindepth 1 -maxdepth 1 -type d -name "values*"
+
+      - name: Setup vars
+        env:
+          PACKAGE_VARIANT: ${{ matrix.package_variant }}
+        run: |
+          CURRENT_VERSION_NAME_REGEX='\s+versionName "([^"]+)"$'
+          CURRENT_VERSION_NAME="$(grep -m 1 -E "$CURRENT_VERSION_NAME_REGEX" app/build.gradle | sed -r "s/$CURRENT_VERSION_NAME_REGEX/\1/")"
+          RELEASE_VERSION_NAME="v${CURRENT_VERSION_NAME}+${GITHUB_SHA:0:7}"
+
+          APK_DIR_PATH="./app/build/outputs/apk/debug"
+          APK_VERSION_TAG="$RELEASE_VERSION_NAME-debug" # Note the "-", GITHUB_SHA will already have "+" before it
+          APK_BASENAME_PREFIX="termux-app_$APK_VERSION_TAG"
+
+          # Used by attachment steps later
+          echo "APK_DIR_PATH=$APK_DIR_PATH" >> $GITHUB_ENV
+          echo "APK_VERSION_TAG=$APK_VERSION_TAG" >> $GITHUB_ENV
+          echo "APK_BASENAME_PREFIX=$APK_BASENAME_PREFIX" >> $GITHUB_ENV
+          echo "CURRENT_VERSION_NAME=$CURRENT_VERSION_NAME" >> $GITHUB_ENV
+
+          echo "$APK_VERSION_TAG"
+          echo "$RELEASE_VERSION_NAME"
+          echo "$APK_BASENAME_PREFIX"
+          export TERMUX_APP_VERSION_NAME="${RELEASE_VERSION_NAME/v/}" # Used by app/build.gradle
+          export TERMUX_APK_VERSION_TAG="$APK_VERSION_TAG" # Used by app/build.gradle
+          export TERMUX_PACKAGE_VARIANT="${{ matrix.package_variant }}" # Used by app/build.gradle
+
+      - name: Build APKs
+        run: |
+          ./gradlew assembleDebug
+
+      - name: Verify APK outputs
+        run: |
+          tree app/build/outputs/apk
+          for abi in universal arm64-v8a armeabi-v7a x86_64 x86; do
+            file="${{ env.APK_DIR_PATH }}/${{ env.APK_BASENAME_PREFIX }}_${abi}.apk"
+            if [ ! -f "$file" ]; then
+              echo "Missing $file" >&2
+              exit 1
+            fi
+          done
+
+      - name: Generate SHA256 sums
+        run: |
+          sha256sum ${{ env.APK_DIR_PATH }}/*.apk \
+            > ${{ env.APK_DIR_PATH }}/sha256sums
+
+      - name: Attach universal APK file
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.APK_BASENAME_PREFIX }}_universal
+          path: |
+            ${{ env.APK_DIR_PATH }}/${{ env.APK_BASENAME_PREFIX }}_universal.apk
+            ${{ env.APK_DIR_PATH }}/output-metadata.json
+
+      - name: Attach arm64-v8a APK file
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.APK_BASENAME_PREFIX }}_arm64-v8a
+          path: |
+            ${{ env.APK_DIR_PATH }}/${{ env.APK_BASENAME_PREFIX }}_arm64-v8a.apk
+            ${{ env.APK_DIR_PATH }}/output-metadata.json
+
+      - name: Attach armeabi-v7a APK file
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.APK_BASENAME_PREFIX }}_armeabi-v7a
+          path: |
+            ${{ env.APK_DIR_PATH }}/${{ env.APK_BASENAME_PREFIX }}_armeabi-v7a.apk
+            ${{ env.APK_DIR_PATH }}/output-metadata.json
+
+      - name: Attach x86_64 APK file
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.APK_BASENAME_PREFIX }}_x86_64
+          path: |
+            ${{ env.APK_DIR_PATH }}/${{ env.APK_BASENAME_PREFIX }}_x86_64.apk
+            ${{ env.APK_DIR_PATH }}/output-metadata.json
+
+      - name: Attach x86 APK file
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.APK_BASENAME_PREFIX }}_x86
+          path: |
+            ${{ env.APK_DIR_PATH }}/${{ env.APK_BASENAME_PREFIX }}_x86.apk
+            ${{ env.APK_DIR_PATH }}/output-metadata.json
+
+      - name: Attach sha256sums file
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.APK_BASENAME_PREFIX }}_sha256sums
+          path: |
+            ${{ env.APK_DIR_PATH }}/${{ env.APK_BASENAME_PREFIX }}_sha256sums
+            ${{ env.APK_DIR_PATH }}/output-metadata.json
