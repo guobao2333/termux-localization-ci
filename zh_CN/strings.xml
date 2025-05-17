@@ -54,10 +54,14 @@
 
 
     <!-- Terminal Popup -->
-    <string name="action_select_url">选择 URL</string>
-    <string name="title_select_url_dialog">点击 URL 可复制，长按可打开</string>
-    <string name="title_select_url_none_found">终端中未找到 URL。</string>
-    <string name="msg_select_url_copied_to_clipboard">URL 已复制到剪贴板</string>
+    <string name="action_copy">复制</string>
+    <string name="paste_text">粘贴</string>
+    <string name="text_selection_more">更多</string>
+
+    <string name="action_select_url">选择链接</string>
+    <string name="title_select_url_dialog">点击链接可复制，长按可打开</string>
+    <string name="title_select_url_none_found">终端中未找到网址链接</string>
+    <string name="msg_select_url_copied_to_clipboard">链接已复制到剪贴板</string>
 
     <string name="action_share_transcript">分享终端记录</string>
     <string name="title_share_transcript">终端记录</string>
@@ -143,11 +147,17 @@
 
     <!-- Log Level -->
     <string name="termux_log_level_title">日志级别</string>
+    <string name="termux_log_level_off">关闭</string>
+    <string name="termux_log_level_normal">普通</string>
+    <string name="termux_log_level_debug">调试</string>
+    <string name="termux_log_level_verbose">详细</string>
+    <string name="termux_log_level_unknown">*未知*</string>
+    <string name="termux_log_level_value">Logcat 日志级别设置为 “%1$s”</string>
 
     <!-- Terminal View Key Logging -->
     <string name="termux_terminal_view_key_logging_enabled_title">终端视图按键日志记录</string>
     <string name="termux_terminal_view_key_logging_enabled_off">日志中不包含终端视图按键记录。（默认）</string>
-    <string name="termux_terminal_view_key_logging_enabled_on">Logcat 日志将包含终端视图按键记录。此功能非常详细，常规情况下应禁用，否则可能影响性能。</string>
+    <string name="termux_terminal_view_key_logging_enabled_on">Logcat 日志将包含终端视图按键记录。由于会使日志非常详细导致影响性能，常规情况下应禁用。</string>
 
     <!-- Plugin Error Notifications -->
     <string name="termux_plugin_error_notifications_enabled_title">插件错误通知</string>
