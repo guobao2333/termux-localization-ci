@@ -70,7 +70,7 @@ jobs:
           RELEASE_VERSION_NAME="v${CURRENT_VERSION_NAME}+${GITHUB_SHA:0:7}"
 
           APK_DIR_PATH="./app/build/outputs/apk/debug"
-          APK_VERSION_TAG="$RELEASE_VERSION_NAME-debug" # Note the "-", GITHUB_SHA will already have "+" before it
+          APK_VERSION_TAG="$RELEASE_VERSION_NAME-${{ env.PACKAGE_VARIANT }}-debug" # Note the "-", GITHUB_SHA will already have "+" before it
           APK_BASENAME_PREFIX="termux-app_$APK_VERSION_TAG"
 
           # Used by attachment steps later
@@ -79,13 +79,14 @@ jobs:
           echo "APK_BASENAME_PREFIX=$APK_BASENAME_PREFIX" >> $GITHUB_ENV
 
           echo "$APK_BASENAME_PREFIX"
-          echo "TERMUX_APP_VERSION_NAME=${RELEASE_VERSION_NAME/v/}" >> $GITHUB_ENV # Used by app/build.gradle
+          echo "TERMUX_APP_VERSION_NAME=${CURRENT_VERSION_NAME}" >> $GITHUB_ENV # Used by app/build.gradle
           echo "TERMUX_APK_VERSION_TAG=$APK_VERSION_TAG" >> $GITHUB_ENV # Used by app/build.gradle
           echo "TERMUX_PACKAGE_VARIANT=${{ matrix.package_variant }}" >> $GITHUB_ENV # Used by app/build.gradle
 
       - name: Build APKs
         run: |
-          ./gradlew assembleDebug
+          # ./gradlew assembleDebug
+          ./gradlew assembleRelease
 
       - name: Verify APK outputs
         run: |
