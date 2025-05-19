@@ -122,7 +122,7 @@ jobs:
       - name: Check if Release Exists
         id: check-release
         run: |
-          if gh release view "${{ env.VERSION_NAME }}" &>/dev/null; then
+          if gh release view "${{ env.VERSION_NAME }}" --repo "${GITHUB_REPOSITORY}" &>/dev/null; then
             echo "release_exists=true" >> $GITHUB_OUTPUT
           else
             echo "release_exists=false" >> $GITHUB_OUTPUT
@@ -131,7 +131,7 @@ jobs:
       - name: Delete Release (If Exists)
         if: steps.check-release.outputs.release_exists == 'true'
         run: |
-          gh release delete "${{ env.VERSION_NAME }}" --yes
+          gh release delete "${{ env.VERSION_NAME }}" --yes --repo "${GITHUB_REPOSITORY}"
 
       - name: Create or Recreate Release
         env:
@@ -144,6 +144,7 @@ jobs:
           EOF
           )
           gh release create "${{ env.VERSION_NAME }}" \
+            --repo "${GITHUB_REPOSITORY}" \
             --title "${{ env.VERSION_NAME }}" \
             --notes "$RELEASE_BODY" \
             ${{ env.APK_DIR_PATH }}/*.apk \
