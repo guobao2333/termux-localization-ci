@@ -85,8 +85,8 @@ jobs:
 
       - name: Build APKs
         run: |
-          # ./gradlew assembleDebug
-          ./gradlew assembleRelease
+          ./gradlew assembleDebug
+          # ./gradlew assembleRelease
 
       - name: Verify APK outputs
         run: |
