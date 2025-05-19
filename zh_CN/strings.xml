@@ -59,7 +59,7 @@
     <string name="text_selection_more">更多</string>
 
     <string name="action_select_url">选择链接</string>
-    <string name="title_select_url_dialog">点击链接可复制，长按可打开</string>
+    <string name="title_select_url_dialog">点击复制链接，长按打开链接</string>
     <string name="title_select_url_none_found">终端中未找到网址链接</string>
     <string name="msg_select_url_copied_to_clipboard">链接已复制到剪贴板</string>
 
@@ -189,16 +189,16 @@
 
 
         <!-- Terminal View Preferences -->
-        <string name="termux_terminal_view_preferences_title">终端视图</string>
-        <string name="termux_terminal_view_preferences_summary">终端视图设置</string>
+        <string name="termux_terminal_view_preferences_title">终端显示</string>
+        <string name="termux_terminal_view_preferences_summary">终端显示设置</string>
 
             <!-- View Category -->
-            <string name="termux_terminal_view_view_header">视图</string>
+            <string name="termux_terminal_view_view_header">显示</string>
 
                 <!-- Terminal View Margin Adjustment -->
                 <string name="termux_terminal_view_terminal_margin_adjustment_title">调整终端边距</string>
                 <string name="termux_terminal_view_terminal_margin_adjustment_off">禁用终端边距调整。</string>
-                <string name="termux_terminal_view_terminal_margin_adjustment_on">启用终端边距调整。可修复软键盘遮挡额外按键或终端视图的问题。如出现屏幕闪烁，请禁用。（默认）</string>
+                <string name="termux_terminal_view_terminal_margin_adjustment_on">启用终端边距调整。可修复软键盘遮挡额外按键或终端显示的问题。出现屏幕闪烁时请禁用。（默认）</string>
 
 
 
@@ -230,6 +230,6 @@
     <string name="about_preference_title">关于</string>
 
     <!-- Donate Preference -->
-    <string name="donate_preference_title">捐赠</string>
+    <string name="donate_preference_title">捐款</string>
 
 </resources>
