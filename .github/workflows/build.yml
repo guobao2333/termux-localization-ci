@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'VersionName'
+        description: 'VersionName (latest/beta/X.Y.Z)'
         required: true
-        default: '0.118.2'
+        default: 'latest'
   pull_request:
     branches:
       - main
@@ -14,17 +14,20 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    # strategy:
-      # fail-fast: false
-      # matrix:
-        # package_variant: [ apt-android-7, apt-android-5 ]
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Verify version
         run: |
-          if ! printf "%s" "${{ github.event.inputs.version }}" | grep -qP '^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$'; then
-           echo "The versionName '${{ github.event.inputs.version }}' is not a valid version as per semantic version '2.0.0' spec in the format 'major.minor.patch(-prerelease)(+buildmetadata)'. https://semver.org/spec/v2.0.0.html." >&2
+          VERSION_NAME="${{ github.event.inputs.version }}"
+          if [[ "$VERSION_NAME" == "latest" ]]; then
+            VERSION_NAME=$(gh api repos/termux/termux-app/releases/latest --jq '.tag_name' | sed 's/^v//')
+          elif [[ "$VERSION_NAME" == "beta" ]]; then
+            VERSION_NAME=$(gh api repos/termux/termux-app/releases --jq 'map(select(.prerelease))[0].tag_name' | sed 's/^v//')
+          fi
+          echo "VERSION_NAME=$VERSION_NAME" >> $GITHUB_ENV 
+          if ! printf "%s" "$VERSION_NAME" | grep -qP '^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$'; then
+           echo "The versionName '$VERSION_NAME' is not a valid version as per semantic version '2.0.0' spec in the format 'major.minor.patch(-prerelease)(+buildmetadata)'. https://semver.org/spec/v2.0.0.html." >&2
            exit 1
           fi
           echo 'Verified✅'
@@ -34,7 +37,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: termux/termux-app
-          ref: v${{ github.event.inputs.version }}
+          ref: ${{ env.VERSION_NAME }}
           fetch-depth: 0
           path: .
 
@@ -52,18 +55,11 @@ jobs:
           find res -mindepth 1 -maxdepth 1 ! -name ".*" -type d -prune -o -exec rm -rf {} +
           # 重命名
           find res -mindepth 1 -maxdepth 1 -type d -exec sh -c 'new_name="values-$(echo "${1##*/}" | sed "s/_/-r/g")"; mv "$1" "res/$new_name"' _ {} \;
-          # for d in res/*; do
-          #   [ -d "$d" ] || continue
-          #   new="values-$(basename "$d" | sed 's/_/-r/g')"
-          #   mv "$d" "res/$new"
-          # done
           mv res/* app/src/main/res && rmdir res
           echo "After:"
           find app/src/main/res -mindepth 1 -maxdepth 1 -type d -name "values*"
 
       - name: Setup vars
-        # env:
-          # PACKAGE_VARIANT: ${{ matrix.package_variant }}
         run: |
           CURRENT_VERSION_NAME_REGEX='\s+versionName "([^"]+)"$'
           CURRENT_VERSION_NAME="$(grep -m 1 -E "$CURRENT_VERSION_NAME_REGEX" ./app/build.gradle | sed -r "s/$CURRENT_VERSION_NAME_REGEX/\1/")"
@@ -82,10 +78,28 @@ jobs:
           echo "TERMUX_APP_VERSION_NAME=${CURRENT_VERSION_NAME}" >> $GITHUB_ENV # Used by app/build.gradle
           echo "TERMUX_APK_VERSION_TAG=$APK_VERSION_TAG" >> $GITHUB_ENV # Used by app/build.gradle
 
+      - name: Restore Cache
+        uses: actions/cache@v4
+        id: gradle-cache
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+      ${{ runner.os }}-gradle-
+
       - name: Build APKs
-        run: |
-          ./gradlew assembleDebug
-          # ./gradlew assembleRelease
+        run: ./gradlew assembleDebug
+
+      - name: Update Cache
+        if: success() && steps.gradle-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: ${{ steps.gradle-cache.outputs.cache-primary }}
 
       - name: Verify APK outputs
         run: |
@@ -103,50 +117,32 @@ jobs:
           sha256sum ${{ env.APK_DIR_PATH }}/*.apk \
             > ${{ env.APK_DIR_PATH }}/sha256sums
 
-      - name: Attach universal APK file
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ env.APK_BASENAME_PREFIX }}_universal
-          path: |
-            ${{ env.APK_DIR_PATH }}/${{ env.APK_BASENAME_PREFIX }}_universal.apk
-            ${{ env.APK_DIR_PATH }}/output-metadata.json
+      - name: Check if Release Exists
+        id: check-release
+        run: |
+          if gh release view "${{ env.VERSION_NAME }}" &>/dev/null; then
+            echo "release_exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "release_exists=false" >> $GITHUB_OUTPUT
+          fi
 
-      - name: Attach arm64-v8a APK file
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ env.APK_BASENAME_PREFIX }}_arm64-v8a
-          path: |
-            ${{ env.APK_DIR_PATH }}/${{ env.APK_BASENAME_PREFIX }}_arm64-v8a.apk
-            ${{ env.APK_DIR_PATH }}/output-metadata.json
+      - name: Delete Release (If Exists)
+        if: steps.check-release.outputs.release_exists == 'true'
+        run: |
+          gh release delete "${{ env.VERSION_NAME }}" --yes
 
-      - name: Attach armeabi-v7a APK file
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ env.APK_BASENAME_PREFIX }}_armeabi-v7a
-          path: |
-            ${{ env.APK_DIR_PATH }}/${{ env.APK_BASENAME_PREFIX }}_armeabi-v7a.apk
-            ${{ env.APK_DIR_PATH }}/output-metadata.json
+      - name: Create or Recreate Release
+        env:
+          VERSION_NAME: ${{ env.VERSION_NAME }}
+        run: |
+          RELEASE_BODY=$(cat << EOF
+          构建时间：$(date +'%Y-%m-%d %H:%M:%S')
 
-      - name: Attach x86_64 APK file
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ env.APK_BASENAME_PREFIX }}_x86_64
-          path: |
-            ${{ env.APK_DIR_PATH }}/${{ env.APK_BASENAME_PREFIX }}_x86_64.apk
-            ${{ env.APK_DIR_PATH }}/output-metadata.json
-
-      - name: Attach x86 APK file
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ env.APK_BASENAME_PREFIX }}_x86
-          path: |
-            ${{ env.APK_DIR_PATH }}/${{ env.APK_BASENAME_PREFIX }}_x86.apk
-            ${{ env.APK_DIR_PATH }}/output-metadata.json
-
-      - name: Attach sha256sums file
-        uses: actions/upload-artifact@v4
-        with:
-          name: sha256sums
-          path: |
+          发布信息请查看：[此页面](https://github.com/termux/termux-app/releases/tag/$VERSION_NAME)
+          EOF
+          )
+          gh release create "${{ env.VERSION_NAME }}" \
+            --title "${{ env.VERSION_NAME }}" \
+            --notes "$RELEASE_BODY" \
+            ${{ env.APK_DIR_PATH }}/*.apk \
             ${{ env.APK_DIR_PATH }}/sha256sums
-            ${{ env.APK_DIR_PATH }}/output-metadata.json
