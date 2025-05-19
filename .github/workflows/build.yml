@@ -25,12 +25,14 @@ jobs:
           elif [[ "$VERSION_NAME" == "beta" ]]; then
             VERSION_NAME=$(gh api repos/termux/termux-app/releases --jq 'map(select(.prerelease))[0].tag_name')
           fi
-          if ! printf "%s" "$VERSION_NAME" | grep -qP '^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$'; then
-           echo "The versionName '$VERSION_NAME' is not a valid version as per semantic version '2.0.0' spec in the format 'major.minor.patch(-prerelease)(+buildmetadata)'. https://semver.org/spec/v2.0.0.html." >&2
+
+          SEMVER_NAME="${VERSION_NAME#v}"
+          if ! printf "%s" "$SEMVER_NAME" | grep -qP '^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$'; then
+           echo "The versionName '$SEMVER_NAME' is not a valid version as per semantic version '2.0.0' spec in the format 'major.minor.patch(-prerelease)(+buildmetadata)'. https://semver.org/spec/v2.0.0.html." >&2
            exit 1
           fi
           echo 'Verified✅'
-          echo "VERSION_NAME=v$VERSION_NAME" >> $GITHUB_ENV 
+          echo "VERSION_NAME=$VERSION_NAME" >> $GITHUB_ENV 
 
       # 检出代码
       - name: Checkout termux remote repository
