@@ -14,10 +14,10 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        package_variant: [ apt-android-7, apt-android-5 ]
+    # strategy:
+      # fail-fast: false
+      # matrix:
+        # package_variant: [ apt-android-7, apt-android-5 ]
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
@@ -62,15 +62,15 @@ jobs:
           find app/src/main/res -mindepth 1 -maxdepth 1 -type d -name "values*"
 
       - name: Setup vars
-        env:
-          PACKAGE_VARIANT: ${{ matrix.package_variant }}
+        # env:
+          # PACKAGE_VARIANT: ${{ matrix.package_variant }}
         run: |
           CURRENT_VERSION_NAME_REGEX='\s+versionName "([^"]+)"$'
           CURRENT_VERSION_NAME="$(grep -m 1 -E "$CURRENT_VERSION_NAME_REGEX" ./app/build.gradle | sed -r "s/$CURRENT_VERSION_NAME_REGEX/\1/")"
           RELEASE_VERSION_NAME="v${CURRENT_VERSION_NAME}+${GITHUB_SHA:0:7}"
 
           APK_DIR_PATH="./app/build/outputs/apk/debug"
-          APK_VERSION_TAG="$RELEASE_VERSION_NAME-${{ env.PACKAGE_VARIANT }}-debug" # Note the "-", GITHUB_SHA will already have "+" before it
+          APK_VERSION_TAG="$RELEASE_VERSION_NAME-debug" # Note the "-", GITHUB_SHA will already have "+" before it
           APK_BASENAME_PREFIX="termux-app_$APK_VERSION_TAG"
 
           # Used by attachment steps later
@@ -81,7 +81,6 @@ jobs:
           echo "$APK_BASENAME_PREFIX"
           echo "TERMUX_APP_VERSION_NAME=${CURRENT_VERSION_NAME}" >> $GITHUB_ENV # Used by app/build.gradle
           echo "TERMUX_APK_VERSION_TAG=$APK_VERSION_TAG" >> $GITHUB_ENV # Used by app/build.gradle
-          echo "TERMUX_PACKAGE_VARIANT=${{ matrix.package_variant }}" >> $GITHUB_ENV # Used by app/build.gradle
 
       - name: Build APKs
         run: |
