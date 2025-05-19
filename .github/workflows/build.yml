@@ -141,7 +141,7 @@ jobs:
           VERSION_NAME: ${{ env.VERSION_NAME }}
         run: |
           RELEASE_BODY=$(cat << EOF
-          构建时间：$(date +'%Y-%m-%d %H:%M:%S')
+          构建时间：UTC+8 $(TZ='Asia/Shanghai' date +'%Z %H:%M')
 
           发布信息请查看：[此页面](https://github.com/termux/termux-app/releases/tag/$VERSION_NAME)
           EOF
