@@ -35,7 +35,7 @@ jobs:
            exit 1
           fi
           echo 'Verified✅'
-          echo "VERSION_NAME=$VERSION_NAME" >> $GITHUB_ENV 
+          echo "VERSION_NAME=$VERSION_NAME" >> $GITHUB_ENV
 
       # 检出代码
       - name: Checkout termux remote repository
@@ -136,6 +136,15 @@ jobs:
         run: |
           gh release delete "${{ env.VERSION_NAME }}" --yes --repo "${GITHUB_REPOSITORY}"
 
+      - name: Set prerelease flag
+        run: |
+          release_list=$(gh api repos/termux/termux-app/releases/tags/${{ env.VERSION_NAME }})
+          if echo "$release_list" | jq -e '.prerelease' | grep true; then
+            echo "PRERELEASE_FLAG=--prerelease" >> $GITHUB_ENV
+          else
+            echo "PRERELEASE_FLAG=" >> $GITHUB_ENV
+          fi
+
       - name: Create or Recreate Release
         env:
           VERSION_NAME: ${{ env.VERSION_NAME }}
@@ -150,5 +159,6 @@ jobs:
             --repo "${GITHUB_REPOSITORY}" \
             --title "${{ env.VERSION_NAME }}" \
             --notes "$RELEASE_BODY" \
+            ${{ env.PRERELEASE_FLAG }} \
             ${{ env.APK_DIR_PATH }}/*.apk \
             ${{ env.APK_DIR_PATH }}/sha256sums
