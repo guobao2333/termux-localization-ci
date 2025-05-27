@@ -29,7 +29,8 @@ jobs:
           elif [[ "$VERSION_NAME" == "beta" ]]; then
             filter='map(select(.prerelease))[0].tag_name'
           fi
-          VERSION_NAME=$(gh api repos/termux/termux-app/releases/$version --jq "$filter")
+          echo "version: ${version}"
+          VERSION_NAME=$(gh api repos/termux/termux-app/releases/${version} --jq "$filter")
 
           SEMVER_NAME="${VERSION_NAME#v}"
           if ! printf "%s" "$SEMVER_NAME" | grep -qP '^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$'; then
